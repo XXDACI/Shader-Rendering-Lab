@@ -1,0 +1,53 @@
+#pragma kernel Kawase
+
+Texture2D<float4> _InputTexture;
+RWTexture2D<float4> _OutputTexture;
+
+SamplerState sampler_linear_clamp;
+
+float _Offset;
+
+[numthreads(8, 8, 1)]
+void Kawase(uint3 id : SV_DispatchThreadID)
+{
+    uint width;
+    uint height;
+    _OutputTexture.GetDimensions(width, height);
+
+    if (id.x >= width || id.y >= height)
+        return;
+
+    float2 texelSize = 1.0 / float2(width, height);
+
+    // 当前像素中心的归一化 UV
+    float2 uv = (float2(id.xy) + 0.5) * texelSize;
+    float2 d = texelSize * _Offset;
+
+    float4 color = 0;
+
+    color += _InputTexture.SampleLevel(
+        sampler_linear_clamp,
+        uv + float2(-d.x, -d.y),
+        0
+    );
+
+    color += _InputTexture.SampleLevel(
+        sampler_linear_clamp,
+        uv + float2(d.x, -d.y),
+        0
+    );
+
+    color += _InputTexture.SampleLevel(
+        sampler_linear_clamp,
+        uv + float2(-d.x, d.y),
+        0
+    );
+
+    color += _InputTexture.SampleLevel(
+        sampler_linear_clamp,
+        uv + float2(d.x, d.y),
+        0
+    );
+
+    _OutputTexture[id.xy] = color * 0.25;
+}

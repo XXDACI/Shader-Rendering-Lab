@@ -1,0 +1,55 @@
+#pragma kernel GaussianBlur
+
+Texture2D<float4> _InputTexture;
+RWTexture2D<float4> _OutputTexture;
+
+float _Offset;
+
+static const float Kernel1D[5] = { 1.0, 4.0, 6.0, 4.0, 1.0 };
+
+// 想办法把offset给加上
+[numthreads(8, 8, 1)]
+void GaussianBlur(uint3 id : SV_DispatchThreadID)
+{
+    uint width;
+    uint height;
+
+    _InputTexture.GetDimensions(width, height);
+
+    if (id.x >= width || id.y >= height)
+        return;
+
+    float totalWeight = 0;
+    int2 center = int2(id.xy);
+    float4 color = 0;
+
+    for (int _y = -2; _y <= 2; _y++)
+    {
+        for (int _x = -2; _x <= 2; _x++)
+        {
+            // offset 传到这里
+            int2 samplePos = center + int2(_x, _y) * _Offset;
+
+            samplePos = clamp(
+                samplePos,
+                int2(0, 0),
+                int2((int) width - 1, (int) height - 1)
+            );
+
+            float xWeight = Kernel1D[_x + 2];
+            float yWeight = Kernel1D[_y + 2];
+
+            // 归一化
+            float weight = xWeight * yWeight / 256.0;
+            
+            // 输出 看一下color 和 权重 都查一下值 
+            // color 要在0-1之间
+
+            totalWeight += weight;
+            color += _InputTexture[samplePos] * weight;
+        }
+    }
+
+    _OutputTexture[center] = color;
+    //_OutputTexture[center] = float4(totalWeight, totalWeight, totalWeight, 1);
+}
